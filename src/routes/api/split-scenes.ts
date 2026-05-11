@@ -60,9 +60,11 @@ export const Route = createFileRoute("/api/split-scenes")({
           const parsed = SceneSchema.parse(extractJson(text));
           return Response.json(parsed);
         } catch (err) {
-          const status = (err as { status?: number })?.status;
-          if (status === 429) return new Response("rate_limited", { status: 429 });
-          if (status === 402) return new Response("payment_required", { status: 402 });
+          const e = err as { status?: number; statusCode?: number; message?: string };
+          const status = e?.status ?? e?.statusCode;
+          const msg = (e?.message ?? "").toLowerCase();
+          if (status === 429 || msg.includes("rate")) return new Response("rate_limited", { status: 429 });
+          if (status === 402 || msg.includes("payment")) return new Response("payment_required", { status: 402 });
           console.error("split-scenes error", err);
           return new Response("Error dividiendo escenas", { status: 500 });
         }
