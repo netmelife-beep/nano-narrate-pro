@@ -51,6 +51,7 @@ export const Route = createFileRoute("/api/split-scenes")({
 
           const { text } = await generateText({
             model,
+            maxOutputTokens: 16000,
             system:
               "Eres un director de cine y storyboard artist. Divides guiones en escenas visualmente distintas. Para cada escena generas un prompt visual rico en inglés, cinematográfico, listo para un modelo de generación de imágenes. Devuelve SIEMPRE únicamente JSON válido sin markdown ni texto adicional.",
             prompt: `Divide el siguiente guion en EXACTAMENTE 25 escenas visualmente distintas. Si el guion es corto, expande momentos clave en sub-escenas (ángulos, primeros planos, transiciones, detalles del entorno) hasta llegar a 25. Si es largo, agrupa o selecciona los 25 momentos más cinematográficos. Cada escena debe ser visualmente única.\n\nDevuelve EXACTAMENTE este formato JSON con 25 elementos en "scenes", sin envoltorios ni markdown:\n{\n  "scenes": [\n    {\n      "title": "Título corto en el idioma del guion",\n      "description": "Descripción breve de qué sucede, en el idioma del guion",\n      "visualPrompt": "Detailed cinematic English prompt for image generation: subject, action, setting, lighting, mood, style, composition"\n    }\n  ]\n}\n\nGUION:\n"""\n${script}\n"""`,
