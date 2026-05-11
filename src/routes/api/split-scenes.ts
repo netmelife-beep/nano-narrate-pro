@@ -1,6 +1,6 @@
 import "@tanstack/react-start";
 import { createFileRoute } from "@tanstack/react-router";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway";
 
@@ -8,17 +8,31 @@ const SceneSchema = z.object({
   scenes: z
     .array(
       z.object({
-        title: z.string().describe("Título corto de la escena"),
-        description: z.string().describe("Descripción breve de lo que sucede"),
-        visualPrompt: z
-          .string()
-          .describe(
-            "Prompt visual detallado en inglés para generar una imagen cinematográfica de esta escena. Incluye sujeto, acción, ambiente, iluminación, estilo, composición.",
-          ),
+        title: z.string(),
+        description: z.string(),
+        visualPrompt: z.string(),
       }),
     )
     .min(1),
 });
+
+function extractJson(text: string): unknown {
+  let cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = cleaned.search(/[\{\[]/);
+  const isArr = start !== -1 && cleaned[start] === "[";
+  const end = cleaned.lastIndexOf(isArr ? "]" : "}");
+  if (start === -1 || end === -1) throw new Error("No JSON in response");
+  cleaned = cleaned.substring(start, end + 1);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    cleaned = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, " ");
+    return JSON.parse(cleaned);
+  }
+}
 
 export const Route = createFileRoute("/api/split-scenes")({
   server: {
@@ -35,15 +49,15 @@ export const Route = createFileRoute("/api/split-scenes")({
           const gateway = createLovableAiGatewayProvider(key);
           const model = gateway("google/gemini-3-flash-preview");
 
-          const { experimental_output } = await generateText({
+          const { text } = await generateText({
             model,
-            experimental_output: Output.object({ schema: SceneSchema }),
             system:
-              "Eres un director de cine y storyboard artist. Divides guiones en escenas visualmente distintas. Para cada escena generas un prompt visual rico en inglés, cinematográfico, listo para un modelo de generación de imágenes. Mantén las descripciones del usuario en su idioma original, pero los visualPrompt SIEMPRE en inglés.",
-            prompt: `Divide el siguiente guion en todas las escenas necesarias (entre 3 y 12 normalmente). Cada cambio de lugar, momento o acción importante debe ser una escena nueva.\n\nGUION:\n"""\n${script}\n"""`,
+              "Eres un director de cine y storyboard artist. Divides guiones en escenas visualmente distintas. Para cada escena generas un prompt visual rico en inglés, cinematográfico, listo para un modelo de generación de imágenes. Devuelve SIEMPRE únicamente JSON válido sin markdown ni texto adicional.",
+            prompt: `Divide el siguiente guion en todas las escenas necesarias (típicamente entre 3 y 12). Cada cambio de lugar, momento o acción importante debe ser una escena nueva.\n\nDevuelve EXACTAMENTE este formato JSON, sin envoltorios ni markdown:\n{\n  "scenes": [\n    {\n      "title": "Título corto en el idioma del guion",\n      "description": "Descripción breve de qué sucede, en el idioma del guion",\n      "visualPrompt": "Detailed cinematic English prompt for image generation: subject, action, setting, lighting, mood, style, composition"\n    }\n  ]\n}\n\nGUION:\n"""\n${script}\n"""`,
           });
 
-          return Response.json(experimental_output);
+          const parsed = SceneSchema.parse(extractJson(text));
+          return Response.json(parsed);
         } catch (err) {
           const status = (err as { status?: number })?.status;
           if (status === 429) return new Response("rate_limited", { status: 429 });
