@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSplitScenesRouteImport } from './routes/api/split-scenes'
+import { Route as ApiGenerateImageRouteImport } from './routes/api/generate-image'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +23,39 @@ const ApiSplitScenesRoute = ApiSplitScenesRouteImport.update({
   path: '/api/split-scenes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGenerateImageRoute = ApiGenerateImageRouteImport.update({
+  id: '/api/generate-image',
+  path: '/api/generate-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/generate-image': typeof ApiGenerateImageRoute
   '/api/split-scenes': typeof ApiSplitScenesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/generate-image': typeof ApiGenerateImageRoute
   '/api/split-scenes': typeof ApiSplitScenesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/generate-image': typeof ApiGenerateImageRoute
   '/api/split-scenes': typeof ApiSplitScenesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/split-scenes'
+  fullPaths: '/' | '/api/generate-image' | '/api/split-scenes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/split-scenes'
-  id: '__root__' | '/' | '/api/split-scenes'
+  to: '/' | '/api/generate-image' | '/api/split-scenes'
+  id: '__root__' | '/' | '/api/generate-image' | '/api/split-scenes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiGenerateImageRoute: typeof ApiGenerateImageRoute
   ApiSplitScenesRoute: typeof ApiSplitScenesRoute
 }
 
@@ -65,11 +75,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplitScenesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/generate-image': {
+      id: '/api/generate-image'
+      path: '/api/generate-image'
+      fullPath: '/api/generate-image'
+      preLoaderRoute: typeof ApiGenerateImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiGenerateImageRoute: ApiGenerateImageRoute,
   ApiSplitScenesRoute: ApiSplitScenesRoute,
 }
 export const routeTree = rootRouteImport
