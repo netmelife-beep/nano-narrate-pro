@@ -1,59 +1,48 @@
+# Storyboard AI como HTML standalone
 
-# Generador de escenas con Nano Banana 2
+Entregar **un único archivo `storyboard.html`** (CSS + JS inline, sin build, sin backend) que replica la app actual y llama directamente a la API pública de Google Gemini desde el navegador usando una API key que el usuario pega.
 
-App web de una sola página con estética premium tipo ChatGPT/Linear donde pegas un guion, la IA lo divide automáticamente en escenas, y cada escena tiene su propio botón para generar (y regenerar) la imagen con Nano Banana 2.
+## Ubicación del archivo
 
-## Flujo del usuario
+- `/mnt/documents/storyboard.html` → descargable como artefacto.
+- Se abre con doble clic en cualquier navegador moderno. Cero dependencias instaladas.
 
-1. Llega a la landing/app con un textarea grande para pegar el guion.
-2. Pulsa "Dividir en escenas" → Lovable AI (Gemini 3 Flash) analiza el guion y devuelve un array estructurado de escenas: `{ titulo, descripcion, prompt_visual }`.
-3. Aparece una grilla/lista de tarjetas, una por escena, mostrando título + descripción + el prompt visual sugerido (editable).
-4. Cada tarjeta tiene un botón **Generar imagen**. Al pulsarlo:
-   - Se llama al backend que invoca Nano Banana 2 (`google/gemini-3.1-flash-image-preview`) con el prompt visual de esa escena.
-   - La tarjeta muestra estado loading → imagen final.
-   - Botones secundarios: **Regenerar**, **Descargar**, **Copiar prompt**.
-5. Botón global "Generar todas" como atajo opcional que dispara cada tarjeta secuencialmente.
-6. Sin login ni persistencia: todo vive en memoria de la sesión.
+## Funcionalidad incluida (paridad con la app React)
 
-## Diseño visual (UI)
+1. Campo para pegar la **Gemini API key** (Google AI Studio). Se guarda en `localStorage` para no repetir.
+2. Textarea grande para pegar el guion + botón **Dividir en escenas**.
+3. Llama a `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` con el mismo prompt en español que pide exactamente 25 escenas en JSON `{ scenes: [{title, description, visualPrompt}] }`. Parser tolerante a JSON con/ sin markdown (mismo `extractJson` portado).
+4. Grid responsive de tarjetas (1/2/3 columnas según viewport). Cada tarjeta:
+   - número, título, descripción, prompt visual editable (textarea).
+   - área 16:9 con skeleton durante la generación.
+   - botones **Generar**, **Regenerar**, **Descargar PNG**, **Copiar prompt**.
+5. Botón global **Generar todas** que dispara las tarjetas secuencialmente.
+6. Generación de imagen vía `gemini-2.5-flash-image` (Nano Banana) por REST. Devuelve base64 inline → se pinta como `<img src="data:image/png;base64,...">`.
+7. Toasts ligeros propios para errores (429 rate limit, 400 key inválida, 402/quota, genérico).
+8. Botón **Nuevo guion** para resetear.
 
-Aplicar la estética solicitada en el prompt largo: dark mode cinematográfico por defecto, grafito profundo, tipografía sans premium, acentos azul eléctrico, glassmorphism sutil, bordes redondeados, sombras suaves, microinteracciones con framer-motion.
+## Diseño visual
 
-- Layout: header minimalista + área central. En estado inicial: hero con textarea grande centrado. Tras dividir: textarea colapsable arriba + grid responsive de tarjetas (1 col móvil, 2-3 desktop).
-- Tarjeta de escena: número de escena, título, descripción corta, prompt visual editable en accordion, área de imagen 16:9 con skeleton mientras carga, acciones al pie.
-- Tokens de color añadidos a `src/styles.css` en oklch (background grafito, foreground claro, primary azul eléctrico, accent con leve gradiente).
+Mismo lenguaje cinematográfico de la app:
+- Dark mode grafito, acento azul eléctrico, gradiente hero, glassmorphism sutil.
+- Tipografía: Inter desde Google Fonts (CDN) para no depender de assets.
+- Animaciones simples con CSS (fade/slide-in) — sin framer-motion para mantener el archivo en un solo .html.
+- Tokens de color y sombras replicados como CSS variables (`--background`, `--primary`, `--gradient-primary`, `--shadow-elegant`, `--shadow-glow`).
 
-El estilo del prompt largo aplica solo a la UI de la app — no se inyecta en cada prompt de imagen (las imágenes siguen el contenido del guion).
+## Aviso de seguridad visible en la UI
 
-## Arquitectura técnica
+Banner discreto: *"Tu API key se queda en este navegador (localStorage) y se envía solo a Google. No publiques este HTML con tu key dentro."*
 
-**Frontend (TanStack Start)**
-- `src/routes/index.tsx`: pantalla única de la app.
-- `src/components/scene-card.tsx`: tarjeta de escena con estados (idle/loading/done/error).
-- `src/components/script-input.tsx`: textarea + botón dividir.
-- Estado local con `useState` (array de escenas con `id`, `title`, `description`, `prompt`, `status`, `imageUrl`, `error`).
-- React Query mutations para llamar a los endpoints.
+## Detalles técnicos
 
-**Backend (server routes en `src/routes/api/`)**
-- `POST /api/split-scenes`: recibe `{ script }`, llama a Lovable AI Gateway con `google/gemini-3-flash-preview` usando structured output (`Output.object` con Zod schema `{ scenes: [{title, description, visualPrompt}] }`). Devuelve el array.
-- `POST /api/generate-image`: recibe `{ prompt }`, llama a Lovable AI Gateway con `google/gemini-3.1-flash-image-preview` (Nano Banana 2), devuelve la imagen como data URL base64 para mostrar inmediatamente sin necesitar storage.
-- `src/lib/ai-gateway.ts`: helper provider compartido con `@ai-sdk/openai-compatible` apuntando a `https://ai.gateway.lovable.dev/v1` con header `Lovable-API-Key`.
+- HTML semántico: `<header>`, `<main>`, `<section>`, un solo `<h1>`.
+- JS vanilla en un único `<script type="module">` con estado en variables (`let scenes = []`) y render imperativo simple.
+- Sin frameworks, sin npm, sin Tailwind. Estilos a mano con CSS moderno (grid, oklch, backdrop-filter).
+- Endpoints REST de Gemini con header `x-goog-api-key`.
+- QA: tras generar el archivo, abriré una captura del HTML renderizado con un navegador headless para verificar layout antes de entregar.
 
-**Manejo de errores**
-- 429 → toast "Demasiadas solicitudes, espera un momento".
-- 402 → toast "Se agotaron los créditos de Lovable AI, añade créditos en Settings".
-- Error genérico → estado error en la tarjeta con botón Reintentar.
+## Fuera de alcance
 
-## Secretos y dependencias
-
-- `LOVABLE_API_KEY` (auto-provisto, server-side).
-- Instalar: `ai`, `@ai-sdk/openai-compatible`, `zod`, `framer-motion`, `sonner` (si no está).
-
-## Lo que NO se incluye (fuera de alcance)
-
-- Login / cuentas / sistema de créditos propio.
-- Sidebar de historial, búsqueda en chats, multi-conversación.
-- Persistencia en base de datos.
-- Streaming de chat conversacional (esto no es un chat, es un generador por lotes).
-- Subida de archivos/imágenes de referencia (puede añadirse después).
-
+- No se modifica el proyecto React actual (sigue funcionando en paralelo).
+- No hay persistencia de escenas/imágenes entre recargas (igual que la app).
+- No se incluye soporte para otros proveedores de IA.
